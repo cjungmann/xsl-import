@@ -1,0 +1,174 @@
+#! /usr/bin/env python
+
+import sys
+from xml.dom import minidom
+
+def get_file_name():
+    if len(sys.argv) > 1:
+        return sys.argv[1]
+    else:
+        return None
+
+def same_by_attribute(el1, el2, attribute_name):
+    """Returns True if el1 and el2 match with respect the attribute attribute_name.
+
+    The elements are considered matching if:
+    1. Neither element has attribute_name.
+    2. Both elements include attribute_name and the values match.
+
+    Any other configuration is deemed to be non-matching.
+
+    The function returns True if matching and False if non-matching.
+    """
+    has1 = el1.hasAttribute(attribute_name)
+    has2 = el2.hasAttribute(attribute_name)
+
+    if not has1 and not has2:
+        return True;
+        
+    if has1 and has2:
+            el1a = el1.getAttribute(attribute_name)
+            el2a = el2.getAttribute(attribute_name)
+            return el1a==el2a
+    
+    return False
+
+def elements_are_equivalent(el1, el2):
+    """Determines if two elements are equivalent by tagName and a few attributes."""
+    try:
+        alist = ["name","match","mode","use-attribute-sets"]
+        if el1.tagName!=el2.tagName:
+            return False
+        for a in alist:
+            if not same_by_attribute(el1,el2,a):
+                return False
+        return True
+    except:
+        print "Exception in elements_are_equivalent (%s)" % sys.exc_info()[0]
+        
+    return False
+
+def find_matching_element(node, import_element):
+    """Searches siblings of node for an element that matches import_element.
+
+    node should be the first sibling following the xsl:import element in the
+    file that is being processed for imports.
+
+    Since xsl:import elements must preceed all other elements, we can be
+    confident that no potential matches will be missed by skipping above
+    node.
+    """
+    n = node
+    while n is not None:
+        if n.nodeType==n.ELEMENT_NODE:
+            if elements_are_equivalent(n, import_element):
+                return True
+        n = n.nextSibling
+    return False
+
+def get_owner_document(node):
+    while node.nodeType != node.DOCUMENT_NODE:
+        node = node.parentNode
+    if node.nodeType==node.DOCUMENT_NODE:
+        return node
+    else:
+        return None
+
+def announce_insertion(node):
+    tagName = node.tagName
+    if node.hasAttribute("name"):
+        tagName += " name=\"%s\"" % node.getAttribute("name")
+    if node.hasAttribute("match"):
+        tagName += " match=\"%s\"" % node.getAttribute("match")
+
+    print "Inserting " + tagName
+    
+
+def merge_import_contents(insert_before_node, importdoc):
+    """Copies unmatched elements from importdoc before import_node."""
+    parent = insert_before_node.parentNode
+    odoc = get_owner_document(parent)
+    for impnode in importdoc.documentElement.childNodes:
+        if impnode.nodeType==impnode.ELEMENT_NODE:
+            if not find_matching_element(insert_before_node, impnode):
+                newnode = impnode.cloneNode(True)
+                parent.insertBefore(newnode, insert_before_node)
+                newtext = odoc.createTextNode("\n")
+                parent.insertBefore(newtext,insert_before_node)
+
+def open_and_merge_imports(insert_before_node, filepath):
+    newdoc = open_xsl_with_imports(filepath)
+    if newdoc:
+        merge_import_contents(insert_before_node, newdoc)
+
+def incorporate_import(import_node):
+    """Imports unmatched elements of file named in import_node/@href.
+    """
+    if import_node.hasAttribute("href"):
+        open_and_merge_imports(import_node, import_node.getAttribute("href"))
+
+def collect_import_nodes(doc):
+    """Returns a list of xsl:import nodes in reverse document order.
+
+    The nodes are in reverse order because later imports take precedence over
+    earlier imports.  This program only imports elements that are unmatched in
+    the document, so it's necessary to ensure the preferred elements are copied
+    first.
+    """
+    ilist = []
+    for node in doc.documentElement.childNodes:
+        if node.nodeType==node.ELEMENT_NODE:
+            if node.localName=="import":
+                ilist.append(node)
+    return ilist
+
+def process_imports(doc):
+    """For an open XSL document, import files according to XSL rules.
+
+    Because incorporate_import() copies elements that do not already exist in
+    doc, the imports here are processed in reverse order (via pop) to ensure
+    that higher-priority elements have already been copied when lower-priority
+    elements are considered for inclusion.
+
+    Each found import element is removed once its contents have been processed.
+    """
+    ilist = collect_import_nodes(doc)
+    docel = doc.documentElement
+    while len(ilist) > 0:
+        inode = ilist.pop()
+        incorporate_import(inode)
+        docel.removeChild(inode)
+
+def confirm_xsl_doc(doc):
+    return doc.documentElement.tagName=="xsl:stylesheet";
+
+def open_xsl_with_imports(filepath):
+    """Opens file and confirms as XSL before sending off to process the imports.
+
+    This will be a recursive function that will be called for each import file
+    to reconcile any xsl:import elements in the import file before returning
+    the document the reconcile the processed import file.
+    """
+    doc = minidom.parse(filepath)
+    if doc and confirm_xsl_doc(doc):
+        try:
+            process_imports(doc)
+            return doc
+        except Exception as e:
+            print e.message
+    return None
+
+def serialize(doc):
+    doc.writexml(sys.stdout,"","","")
+
+def main():
+    filename = get_file_name()
+    if filename is None:
+        filename = "base.xsl"
+    doc = open_xsl_with_imports(filename)
+    if doc:
+        serialize(doc)
+        
+
+if __name__ == "__main__":
+    main()
