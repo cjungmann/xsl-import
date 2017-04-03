@@ -163,11 +163,12 @@ def serialize(doc):
 
 def main():
     filename = get_file_name()
-    if filename is None:
-        filename = "base.xsl"
-    doc = open_xsl_with_imports(filename)
-    if doc:
-        serialize(doc)
+    if filename:
+        doc = open_xsl_with_imports(filename)
+        if doc:
+            serialize(doc)
+    else:
+       print "Usage: xsl-import stylesheet.xsl\n"
         
 
 if __name__ == "__main__":
