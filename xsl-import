@@ -3,11 +3,37 @@
 import sys
 from xml.dom import minidom
 
+g_filename = None
+flag_sources = False
+flag_strip_comments = False
+
+def show_usage():
+    print "./xsl-import [-s] [--help] filename.xsl"
+    print "--help: Show usage."
+    print "-i:     Tag root children with import file name."
+    print "-s:     Strip comments from elements (this will include import comments). "
+
+def process_flag_list(flaglist):
+    global flag_sources, flag_strip_comments
+    for ch in flaglist:
+        if ch=='i':
+            flag_sources = True
+        elif ch=='s':
+            flag_strip_comments = True
+            
+
+def process_arg_list():
+    global g_filename, flag_sources
+    for arg in sys.argv[1:]:
+        if arg=="--help":
+            show_usage()
+        elif arg[0]=='-':
+            process_flag_list(arg[1:])
+        else:
+            g_filename = arg
+
 def get_file_name():
-    if len(sys.argv) > 1:
-        return sys.argv[1]
-    else:
-        return None
+    return g_filename
 
 def same_by_attribute(el1, el2, attribute_name):
     """Returns True if el1 and el2 match with respect the attribute attribute_name.
@@ -67,6 +93,7 @@ def find_matching_element(node, import_element):
     return False
 
 def get_owner_document(node):
+    """Implemented because xml.dom.minidom doesn't"""
     while node.nodeType != node.DOCUMENT_NODE:
         node = node.parentNode
     if node.nodeType==node.DOCUMENT_NODE:
@@ -74,32 +101,65 @@ def get_owner_document(node):
     else:
         return None
 
-def announce_insertion(node):
-    tagName = node.tagName
-    if node.hasAttribute("name"):
-        tagName += " name=\"%s\"" % node.getAttribute("name")
-    if node.hasAttribute("match"):
-        tagName += " match=\"%s\"" % node.getAttribute("match")
+def clone_element_omit_comments(el, doc=None):
+    """Special clone function that omits comments included in the element."""
+    if not doc:
+        doc = get_owner_document(el)
+        
+    rnode = doc.createElement(el.tagName)
 
-    print "Inserting " + tagName
-    
+    for aname, avalue in el.attributes.items():
+        rnode.setAttribute(aname, avalue)
 
-def merge_import_contents(insert_before_node, importdoc):
+    for child in el.childNodes:
+        if child.nodeType==child.COMMENT_NODE:
+            continue
+        elif child.nodeType==child.TEXT_NODE:
+            rnode.appendChild(doc.createTextNode(child.nodeValue))
+        elif child.nodeType==child.ELEMENT_NODE:
+            rnode.appendChild(clone_element_omit_comments(child,doc))
+
+    return rnode
+
+def first_non_attribute_node(el):
+    """Return first child so a source comment can be the first child."""
+    for n in el.childNodes:
+        if n.nodeType==n.ATTRIBUTE_NODE:
+            continue
+        else:
+            return n
+    return None
+
+def source_flag_element(doc,parent,el,filepath):
+    par = el
+    ref = first_non_attribute_node(el)
+    tnode = doc.createComment(" imported %s " % filepath)
+    par.insertBefore(doc.createTextNode("\n"), ref)
+
+def merge_import_contents(insert_before_node, importdoc, filepath):
     """Copies unmatched elements from importdoc before import_node."""
     parent = insert_before_node.parentNode
     odoc = get_owner_document(parent)
     for impnode in importdoc.documentElement.childNodes:
         if impnode.nodeType==impnode.ELEMENT_NODE:
             if not find_matching_element(insert_before_node, impnode):
-                newnode = impnode.cloneNode(True)
-                parent.insertBefore(newnode, insert_before_node)
-                newtext = odoc.createTextNode("\n")
-                parent.insertBefore(newtext,insert_before_node)
+                if flag_strip_comments:
+                    newnode = clone_element_omit_comments(impnode, odoc)
+                else:
+                    newnode = impnode.cloneNode(True)
+                    
+                parent.insertBefore(newnode,
+                                    insert_before_node)
+                parent.insertBefore(odoc.createTextNode("\n"),
+                                    insert_before_node)
+
+                if flag_sources:
+                    source_flag_element(odoc,parent,newnode,filepath)
 
 def open_and_merge_imports(insert_before_node, filepath):
     newdoc = open_xsl_with_imports(filepath)
     if newdoc:
-        merge_import_contents(insert_before_node, newdoc)
+        merge_import_contents(insert_before_node, newdoc, filepath)
 
 def incorporate_import(import_node):
     """Imports unmatched elements of file named in import_node/@href.
@@ -162,13 +222,15 @@ def serialize(doc):
     doc.writexml(sys.stdout,"","","")
 
 def main():
+    process_arg_list()
+    
     filename = get_file_name()
     if filename:
         doc = open_xsl_with_imports(filename)
         if doc:
             serialize(doc)
     else:
-       print "Usage: xsl-import stylesheet.xsl\n"
+        show_usage()
         
 
 if __name__ == "__main__":
