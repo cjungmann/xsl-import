@@ -44,8 +44,21 @@ document for delivery, especially over the web.  This makes it more feasible
 to liberally document the XSLT files to help clarify what is otherwise a
 rather difficult computer language to scan.
 
-The output can be a bit ragged.  Rather than trying to make a pretty-print
-feature, it is recommended that users take advantage of the 
+The output can be a bit ragged.  Linux users can take advantage of the
+command line utility _xmllint_ (packaged with Rather than trying to make a pretty-print
+feature, it is recommended that (Linux) users take advantage of the _xmllint_
+tool for a cleaner looking file:
+
+To install xmllint:
+~~~
+$ sudo apt-get install libxml2-utils
+$ man xmllint
+~~~
+
+To use xmllint:
+~~~
+$ xsl-import -s base.xsl | xmllint --format -
+~~~
 
 ## Description
 
