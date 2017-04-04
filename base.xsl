@@ -20,7 +20,6 @@
   <xsl:variable name="assume" select="base" />
 
   <xsl:template match="/">
-    <!-- From base.xsl -->
     <html>
       <head>
         <title>Title</title>
@@ -29,6 +28,9 @@
       <body>
         <h1>Title</h1>
         <p>Content</p>
+        This is some unenclosed (ignoring &lt;body&gt;) text,
+        over multiple lines, to test how it is cloned using
+        clone_element_omit_comments().
       </body>
     </html>
   </xsl:template>

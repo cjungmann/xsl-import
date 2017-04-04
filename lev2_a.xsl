@@ -4,6 +4,7 @@
    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
    xmlns="http://www.w3.org/1999/xhtml"
    xmlns:html="http://www.w3.org/1999/xhtml"
+   xmlns:svg="http://www.w3.org/2000/svg"
    exclude-result-prefixes="html">
 
   <xsl:output method="xml"
@@ -14,19 +15,15 @@
          omit-xml-declaration="yes"
          encoding="utf-8"/>
 
-  <xsl:param name="p_one">
-    <!-- from lev2_a.xsl -->
-  </xsl:param>
+  <xsl:param name="p_one" />
 
   <xsl:variable name="v_one">
-    <!-- from lev2_a.xsl -->
     <xsl:text>v_one</xsl:text>
   </xsl:variable>
 
   <xsl:variable name="assume" select="lev2_a" />
 
   <xsl:template match="/">
-    <!-- From lev2_a.xsl -->
     <html>
       <head>
         <title>Title</title>
@@ -40,6 +37,10 @@
   </xsl:template>
 
   <xsl:template name="lev2_a">
+    <!-- Including a namespace-distinguished element to test its preservation. -->
+    <svg:svg xmlns:svg="http://www.w3.org/2000/svg">
+      <svg:rect x="0.5cm" y="0.5cm" width="5cm" height="2cm" />
+    </svg:svg>
   </xsl:template>
 
 </xsl:stylesheet>

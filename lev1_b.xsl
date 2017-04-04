@@ -14,19 +14,15 @@
          omit-xml-declaration="yes"
          encoding="utf-8"/>
 
-  <xsl:param name="p_one">
-    <!-- from lev1_b.xsl -->
-  </xsl:param>
+  <xsl:param name="p_one" />
 
   <xsl:variable name="v_one">
-    <!-- from lev1_b.xsl -->
     <xsl:text>v_one</xsl:text>
   </xsl:variable>
 
   <xsl:variable name="assume" select="lev1_b" />
 
   <xsl:template match="/">
-    <!-- From lev1_a.xsl -->
     <html>
       <head>
         <title>Title</title>
