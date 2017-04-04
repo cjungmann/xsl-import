@@ -26,7 +26,7 @@ copied to an appropriate directory to make it universally accessible (ie /usr/bi
 $ xsl-import [-is] _your-file.xsl_
 ~~~
 
-**-i** will add a _**i**mport_ source comment to each imported element.
+**-i** will add a _**i**mport_ source comment to each imported element.  
 **-s** will _**s**trip_ all comments from imported elements.
 
 There are 4 sample XSLT files included with the project.  Together, they test
