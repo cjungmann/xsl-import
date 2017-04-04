@@ -8,10 +8,13 @@ flag_sources = False
 flag_strip_comments = False
 
 def show_usage():
+    print ""
     print "./xsl-import [-s] [--help] filename.xsl"
+    print ""
     print "--help: Show usage."
     print "-i:     Tag root children with import file name."
     print "-s:     Strip comments from elements (this will include import comments). "
+    print ""
 
 def process_flag_list(flaglist):
     global flag_sources, flag_strip_comments
@@ -20,13 +23,13 @@ def process_flag_list(flaglist):
             flag_sources = True
         elif ch=='s':
             flag_strip_comments = True
-            
 
 def process_arg_list():
     global g_filename, flag_sources
     for arg in sys.argv[1:]:
         if arg=="--help":
-            show_usage()
+            g_filename = None
+            break
         elif arg[0]=='-':
             process_flag_list(arg[1:])
         else:
@@ -101,8 +104,8 @@ def get_owner_document(node):
     else:
         return None
 
-def clone_element_omit_comments(el, doc=None):
-    """Special clone function that omits comments included in the element."""
+def copy_element_omit_comments(el, doc=None):
+    """Recursive copy element function that omits comments."""
     if not doc:
         doc = get_owner_document(el)
         
@@ -117,7 +120,7 @@ def clone_element_omit_comments(el, doc=None):
         elif child.nodeType==child.TEXT_NODE:
             rnode.appendChild(doc.createTextNode(child.nodeValue))
         elif child.nodeType==child.ELEMENT_NODE:
-            rnode.appendChild(clone_element_omit_comments(child,doc))
+            rnode.appendChild(copy_element_omit_comments(child,doc))
 
     return rnode
 
@@ -130,31 +133,37 @@ def first_non_attribute_node(el):
             return n
     return None
 
-def source_flag_element(doc,parent,el,filepath):
-    par = el
-    ref = first_non_attribute_node(el)
-    tnode = doc.createComment(" imported %s " % filepath)
-    par.insertBefore(doc.createTextNode("\n"), ref)
+def source_flag_element(el,filepath,doc,parent):
+    first = first_non_attribute_node(el)
+    el.insertBefore(doc.createComment(" imported %s " % filepath), first)
 
 def merge_import_contents(insert_before_node, importdoc, filepath):
-    """Copies unmatched elements from importdoc before import_node."""
+    """Copies unmatched elements from importdoc before import_node.
+
+       The function only copies element nodes from the import file.
+       Comment, processing instruction, and text nodes will be skipped
+       when encountered during the iteration of the child nodes of the
+       import file's document element (xsl:stylesheet).
+
+       If flag_sources is set via the -i command line flag, each
+       imported element will be tagged with a comment node that indicates
+       the file from which the element came.
+    """
     parent = insert_before_node.parentNode
     odoc = get_owner_document(parent)
     for impnode in importdoc.documentElement.childNodes:
         if impnode.nodeType==impnode.ELEMENT_NODE:
             if not find_matching_element(insert_before_node, impnode):
                 if flag_strip_comments:
-                    newnode = clone_element_omit_comments(impnode, odoc)
+                    newnode = copy_element_omit_comments(impnode, odoc)
                 else:
                     newnode = impnode.cloneNode(True)
                     
                 parent.insertBefore(newnode,
                                     insert_before_node)
-                parent.insertBefore(odoc.createTextNode("\n"),
-                                    insert_before_node)
 
-                if flag_sources:
-                    source_flag_element(odoc,parent,newnode,filepath)
+                if flag_sources and not flag_strip_comments:
+                    source_flag_element(newnode,filepath,odoc,parent)
 
 def open_and_merge_imports(insert_before_node, filepath):
     newdoc = open_xsl_with_imports(filepath)
@@ -162,8 +171,7 @@ def open_and_merge_imports(insert_before_node, filepath):
         merge_import_contents(insert_before_node, newdoc, filepath)
 
 def incorporate_import(import_node):
-    """Imports unmatched elements of file named in import_node/@href.
-    """
+    """Imports unmatched elements of file named in import_node/@href."""
     if import_node.hasAttribute("href"):
         open_and_merge_imports(import_node, import_node.getAttribute("href"))
 
