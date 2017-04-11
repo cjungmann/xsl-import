@@ -64,17 +64,18 @@ def same_by_attribute(el1, el2, attribute_name):
 
 def elements_are_equivalent(el1, el2):
     """Determines if two elements are equivalent by tagName and a few attributes."""
-    try:
-        alist = ["name","match","mode","use-attribute-sets"]
-        if el1.tagName!=el2.tagName:
-            return False
-        for a in alist:
-            if not same_by_attribute(el1,el2,a):
-                return False
-        return True
-    except:
-        print "Exception in elements_are_equivalent (%s)" % sys.exc_info()[0]
-        
+    alist = ["name","match","mode","use-attribute-sets"]
+    if el1.tagName!=el2.tagName:
+        return False
+    else:
+        try:
+            for a in alist:
+                if not same_by_attribute(el1,el2,a):
+                    return False
+            return True
+        except Exception as e:
+            print "Exception in elements_are_equivalent (%s)" % e
+                    
     return False
 
 def find_matching_element(node, import_element):
@@ -221,10 +222,9 @@ def open_xsl_with_imports(filepath):
     if doc and confirm_xsl_doc(doc):
         try:
             process_imports(doc)
-            return doc
         except Exception as e:
-            print e.message
-    return None
+            print e
+    return doc
 
 def serialize(doc):
     doc.writexml(sys.stdout,"","","")
