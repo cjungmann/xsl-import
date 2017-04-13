@@ -1,11 +1,13 @@
 #! /usr/bin/env python
 
 import sys
+from os import path
 from xml.dom import minidom
 
 g_filename = None
 flag_sources = False
 flag_strip_comments = False
+base_path = ""
 
 def show_usage():
     print ""
@@ -172,9 +174,16 @@ def open_and_merge_imports(insert_before_node, filepath):
         merge_import_contents(insert_before_node, newdoc, filepath)
 
 def incorporate_import(import_node):
+    global base_path
     """Imports unmatched elements of file named in import_node/@href."""
     if import_node.hasAttribute("href"):
-        open_and_merge_imports(import_node, import_node.getAttribute("href"))
+        fpath = import_node.getAttribute("href")
+
+        # Massage fpath if it's not an absolute path and there is a base_path
+        if fpath[0]!='/' and len(base_path):
+            fpath = base_path + "/" + fpath
+
+        open_and_merge_imports(import_node, fpath)
 
 def collect_import_nodes(doc):
     """Returns a list of xsl:import nodes in reverse document order.
@@ -230,10 +239,13 @@ def serialize(doc):
     doc.writexml(sys.stdout,"","","")
 
 def main():
+    global base_path
     process_arg_list()
     
     filename = get_file_name()
     if filename:
+        # Save directory to as base for relative import paths:
+        base_path = path.dirname(filename)
         doc = open_xsl_with_imports(filename)
         if doc:
             serialize(doc)
