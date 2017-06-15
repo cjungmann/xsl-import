@@ -236,7 +236,7 @@ def open_xsl_with_imports(filepath):
     return doc
 
 def serialize(doc):
-    doc.writexml(sys.stdout,"","","")
+    sys.stdout.write(doc.toxml("utf-8"))
 
 def main():
     global base_path
